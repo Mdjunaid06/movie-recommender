@@ -1,0 +1,20 @@
+# Virtual environment
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Dataset (too large for git)
+backend/data/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ML model artifacts
+backend/models/*.pkl
