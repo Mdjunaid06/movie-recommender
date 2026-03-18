@@ -1,32 +1,38 @@
-from app.utils import (
-    load_raw_data,
-    merge_datasets,
-    basic_clean,
-    build_tags,
-    select_final_columns,
-    inspect_data,
-)
+from app.recommender import build_model, recommend, search_movies
 
 
-def build_dataset() -> object:
-    """Full preprocessing pipeline. Returns clean dataframe."""
-    print("📦 Loading raw data...")
-    movies_df, credits_df = load_raw_data()
+def main():
+    # Build and save model
+    df, similarity_matrix = build_model()
 
-    print("🔗 Merging datasets...")
-    df = merge_datasets(movies_df, credits_df)
+    print("\n" + "="*50)
+    print(" Testing recommend() function...")
+    print("="*50)
 
-    print("🧹 Basic cleaning...")
-    df = basic_clean(df)
+    # Test 1: Single movie recommendation
+    results = recommend("Avatar", df, similarity_matrix, top_n=5)
+    print(f"\n🎬 Movies similar to 'Avatar':")
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
 
-    print("🏗️  Engineering features + building tags...")
-    df = build_tags(df)
-    df = select_final_columns(df)
+    print("\n" + "="*50)
 
-    inspect_data(df)
-    print("\n✅ Phase 2 complete. Data is ready for ML.")
-    return df
+    # Test 2: Another movie
+    results2 = recommend("The Dark Knight", df, similarity_matrix, top_n=5)
+    print(f"\n🎬 Movies similar to 'The Dark Knight':")
+    for i, r in enumerate(results2, 1):
+        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
+
+    print("\n" + "="*50)
+
+    # Test 3: Search
+    print(f"\n🔍 Search results for 'dark':")
+    search_results = search_movies("dark", df, top_n=5)
+    for r in search_results:
+        print(f"  - {r['title']}")
+
+    print("\n✅ Phase 3 complete!")
 
 
 if __name__ == "__main__":
-    build_dataset()
+    main()
