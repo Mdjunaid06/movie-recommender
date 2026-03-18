@@ -1,37 +1,56 @@
-from app.recommender import build_model, recommend, search_movies
+from app.recommender import load_model, recommend_weighted, search_movies
 
 
 def main():
-    # Build and save model
-    df, similarity_matrix = build_model()
+    print("📂 Loading saved model...")
+    df, similarity_matrix = load_model()
+    print("✅ Model loaded!\n")
 
-    print("\n" + "="*50)
-    print(" Testing recommend() function...")
-    print("="*50)
-
-    # Test 1: Single movie recommendation
-    results = recommend("Avatar", df, similarity_matrix, top_n=5)
-    print(f"\n🎬 Movies similar to 'Avatar':")
+    print("=" * 55)
+    print("TEST 1: Single movie input")
+    print("=" * 55)
+    results = recommend_weighted(
+        df=df,
+        similarity_matrix=similarity_matrix,
+        movies=["Inception"],
+        top_n=5,
+    )
+    print(f"\n🎬 Recommendations for 'Inception':")
     for i, r in enumerate(results, 1):
         print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
+    print(f"\n💡 {results[0]['explanation']}\n")
 
-    print("\n" + "="*50)
-
-    # Test 2: Another movie
-    results2 = recommend("The Dark Knight", df, similarity_matrix, top_n=5)
-    print(f"\n🎬 Movies similar to 'The Dark Knight':")
+    print("=" * 55)
+    print("TEST 2: Multiple movies + actor")
+    print("=" * 55)
+    results2 = recommend_weighted(
+        df=df,
+        similarity_matrix=similarity_matrix,
+        movies=["Inception", "Interstellar"],
+        actors=["Leonardo DiCaprio"],
+        top_n=5,
+    )
+    print(f"\n🎬 Recommendations for Inception + Interstellar + DiCaprio:")
     for i, r in enumerate(results2, 1):
         print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
+    print(f"\n💡 {results2[0]['explanation']}\n")
 
-    print("\n" + "="*50)
+    print("=" * 55)
+    print("TEST 3: Director + Genre only")
+    print("=" * 55)
+    results3 = recommend_weighted(
+        df=df,
+        similarity_matrix=similarity_matrix,
+        directors=["Christopher Nolan"],
+        genres=["Action", "Thriller"],
+        top_n=5,
+    )
+    print(f"\n🎬 Recommendations for Nolan + Action/Thriller:")
+    for i, r in enumerate(results3, 1):
+        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
+    print(f"\n💡 {results3[0]['explanation']}\n")
 
-    # Test 3: Search
-    print(f"\n🔍 Search results for 'dark':")
-    search_results = search_movies("dark", df, top_n=5)
-    for r in search_results:
-        print(f"  - {r['title']}")
-
-    print("\n✅ Phase 3 complete!")
+    print("✅ Phase 4 complete!")
 
 
 if __name__ == "__main__":
