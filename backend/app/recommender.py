@@ -108,7 +108,7 @@ def get_movie_score(
         matched += 1
 
     if matched > 0:
-        scores /= matched  # average across all input movies
+        scores /= matched
 
     return scores
 
@@ -131,7 +131,6 @@ def get_actor_score(
         )
         scores[i] = match_count
 
-    # Normalize
     max_score = scores.max()
     if max_score > 0:
         scores /= max_score
@@ -184,7 +183,55 @@ def get_genre_score(
 
 
 # ─────────────────────────────────────────
-# 4. MULTI-INPUT WEIGHTED RECOMMEND
+# 4. POPULARITY HELPERS
+# ─────────────────────────────────────────
+
+def normalize_ratings(df: pd.DataFrame) -> np.ndarray:
+    """
+    Normalize vote_average to [0, 1] range.
+    Uses IMDB weighted rating formula to penalize
+    movies with very few votes.
+
+    Formula: weighted = (v/(v+m)) * R + (m/(v+m)) * C
+    Where:
+        v = vote count for the movie
+        m = minimum votes threshold (25th percentile)
+        R = movie's average rating
+        C = mean rating across all movies
+    """
+    v = df["vote_count"].values
+    R = df["vote_average"].values
+    C = df["vote_average"].mean()
+    m = df["vote_count"].quantile(0.25)
+
+    # IMDB weighted rating
+    weighted = (v / (v + m)) * R + (m / (v + m)) * C
+
+    # Normalize to [0, 1]
+    min_w = weighted.min()
+    max_w = weighted.max()
+    normalized = (weighted - min_w) / (max_w - min_w)
+
+    return normalized
+
+
+def apply_popularity_boost(
+    scores: np.ndarray,
+    df: pd.DataFrame,
+    similarity_weight: float = 0.7,
+    popularity_weight: float = 0.3,
+) -> np.ndarray:
+    """
+    Combine similarity scores with popularity scores.
+    Final Score = (similarity × 0.7) + (popularity × 0.3)
+    """
+    popularity_scores = normalize_ratings(df)
+    final = (similarity_weight * scores) + (popularity_weight * popularity_scores)
+    return final
+
+
+# ─────────────────────────────────────────
+# 5. MULTI-INPUT WEIGHTED RECOMMEND
 # ─────────────────────────────────────────
 
 def recommend_weighted(
@@ -206,18 +253,8 @@ def recommend_weighted(
         directors → 15%
         genres    → 15%
 
-    Args:
-        df:               preprocessed dataframe
-        similarity_matrix: cosine similarity matrix
-        movies:           list of movie titles (up to 10)
-        actors:           list of actor names
-        directors:        list of director names
-        genres:           list of genre strings
-        top_n:            number of results
-        weights:          optional custom weight dict
-
-    Returns:
-        List of recommendation dicts
+    Then applies popularity boost:
+        Final Score = (weighted_score × 0.7) + (popularity × 0.3)
     """
     if weights is None:
         weights = {
@@ -256,6 +293,9 @@ def recommend_weighted(
         genre_scores = get_genre_score(genres, df)
         final_scores += weights["genres"] * genre_scores
         print(f"   🎞️  Genre scores computed for: {genres}")
+
+    # ── Apply popularity boost ─────────────────
+    final_scores = apply_popularity_boost(final_scores, df)
 
     # ── Exclude input movies from results ──────
     input_indices = set()
@@ -307,7 +347,7 @@ def recommend_weighted(
 
 
 # ─────────────────────────────────────────
-# 5. SIMPLE SINGLE-MOVIE RECOMMEND (kept for compatibility)
+# 6. SIMPLE SINGLE-MOVIE RECOMMEND
 # ─────────────────────────────────────────
 
 def recommend(
@@ -326,7 +366,7 @@ def recommend(
 
 
 # ─────────────────────────────────────────
-# 6. SEARCH
+# 7. SEARCH
 # ─────────────────────────────────────────
 
 def search_movies(query: str, df: pd.DataFrame, top_n: int = 10) -> list[dict]:
