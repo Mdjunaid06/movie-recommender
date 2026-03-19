@@ -1,4 +1,5 @@
-from app.recommender import load_model, recommend_weighted, search_movies
+from app.recommender import load_model, recommend_weighted
+from app.omdb_client import enrich_dataset, save_enriched
 
 
 def main():
@@ -6,51 +7,19 @@ def main():
     df, similarity_matrix = load_model()
     print("✅ Model loaded!\n")
 
-    print("=" * 55)
-    print("TEST 1: Single movie input")
-    print("=" * 55)
-    results = recommend_weighted(
-        df=df,
-        similarity_matrix=similarity_matrix,
-        movies=["Inception"],
-        top_n=5,
-    )
-    print(f"\n🎬 Recommendations for 'Inception':")
-    for i, r in enumerate(results, 1):
-        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
-    print(f"\n💡 {results[0]['explanation']}\n")
+    # Enrich first 100 movies with OMDB data
+    print("🌐 Fetching OMDB data...")
+    df_enriched = enrich_dataset(df, limit=100)
+    save_enriched(df_enriched)
 
-    print("=" * 55)
-    print("TEST 2: Multiple movies + actor")
-    print("=" * 55)
-    results2 = recommend_weighted(
-        df=df,
-        similarity_matrix=similarity_matrix,
-        movies=["Inception", "Interstellar"],
-        actors=["Leonardo DiCaprio"],
-        top_n=5,
-    )
-    print(f"\n🎬 Recommendations for Inception + Interstellar + DiCaprio:")
-    for i, r in enumerate(results2, 1):
-        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
-    print(f"\n💡 {results2[0]['explanation']}\n")
+    # Show sample enriched data
+    print("\n📋 Sample enriched movies:")
+    sample = df_enriched[["title", "poster", "imdb_rating", "runtime"]].head(5)
+    for _, row in sample.iterrows():
+        print(f"  🎬 {row['title']:<40} ⭐ {row['imdb_rating']}  🕐 {row['runtime']}")
+        print(f"     🖼️  {row['poster'][:60]}...")
 
-    print("=" * 55)
-    print("TEST 3: Director + Genre only")
-    print("=" * 55)
-    results3 = recommend_weighted(
-        df=df,
-        similarity_matrix=similarity_matrix,
-        directors=["Christopher Nolan"],
-        genres=["Action", "Thriller"],
-        top_n=5,
-    )
-    print(f"\n🎬 Recommendations for Nolan + Action/Thriller:")
-    for i, r in enumerate(results3, 1):
-        print(f"  {i}. {r['title']:<40} Score: {r['score_pct']}  ⭐ {r['vote_average']}")
-    print(f"\n💡 {results3[0]['explanation']}\n")
-
-    print("✅ Phase 4 complete!")
+    print("\n✅ OMDB integration complete!")
 
 
 if __name__ == "__main__":
