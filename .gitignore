@@ -7,7 +7,7 @@ __pycache__/
 *.pyo
 
 # Dataset (too large for git)
-backend/data/
+
 
 # Environment variables
 .env

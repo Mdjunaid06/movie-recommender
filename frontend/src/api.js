@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "https://movie-recommender-li21.onrender.com",
   timeout: 30000,
 });
 
