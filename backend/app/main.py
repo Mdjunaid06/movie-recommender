@@ -2,21 +2,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import numpy as np
-import pandas as pd
 
 from app.recommender import load_model, recommend_weighted, search_movies
 from app.omdb_client import fetch_movie_omdb
 
 # ─────────────────────────────────────────
-# LIFESPAN — Load model once at startup
+# LIFESPAN
 # ─────────────────────────────────────────
 
 ml_model = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load ML model into memory when API starts."""
     print("🚀 Loading ML model...")
     df, similarity_matrix = load_model()
     ml_model["df"] = df
@@ -32,15 +29,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="🎬 Movie Recommender API",
-    description="Hybrid movie recommendation system with multi-input weighted scoring",
+    description="Hybrid movie recommendation system",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# CORS — Allow React frontend to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production: ["https://your-frontend.vercel.app"]
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,29 +48,29 @@ app.add_middleware(
 # ─────────────────────────────────────────
 
 class RecommendRequest(BaseModel):
-    movies:    list[str] = Field(default=[], max_length=10, description="Up to 10 movie titles")
-    actors:    list[str] = Field(default=[], description="Actor names")
-    directors: list[str] = Field(default=[], description="Director names")
-    genres:    list[str] = Field(default=[], description="Genre names")
-    top_n:     int       = Field(default=10, ge=1, le=50, description="Number of results")
+    movies:    list[str] = Field(default=[])
+    actors:    list[str] = Field(default=[])
+    directors: list[str] = Field(default=[])
+    genres:    list[str] = Field(default=[])
+    top_n:     int       = Field(default=10, ge=1, le=50)
 
 class MovieCard(BaseModel):
     title:        str
-    score:        float
-    score_pct:    str
+    score:        float = 0.0
+    score_pct:    str = ""
     genres:       list[str]
     cast:         list[str]
     director:     list[str]
     vote_average: float
     overview:     str
-    explanation:  str
+    explanation:  str = ""
     poster:       str = "N/A"
     imdb_rating:  str = "N/A"
 
 class RecommendResponse(BaseModel):
-    results:     list[MovieCard]
-    total:       int
-    query_info:  dict
+    results:    list[MovieCard]
+    total:      int
+    query_info: dict
 
 
 # ─────────────────────────────────────────
@@ -93,7 +89,7 @@ def root():
 @app.get("/health")
 def health():
     return {
-        "status":      "healthy",
+        "status":       "healthy",
         "model_loaded": "df" in ml_model,
         "total_movies": len(ml_model["df"]) if "df" in ml_model else 0,
     }
@@ -101,16 +97,6 @@ def health():
 
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend(request: RecommendRequest):
-    """
-    Get movie recommendations based on multiple inputs.
-
-    - **movies**: list of movie titles you liked (up to 10)
-    - **actors**: list of actor names you like
-    - **directors**: list of director names you like
-    - **genres**: list of genres you prefer
-    - **top_n**: number of recommendations to return
-    """
-    # Validate at least one input provided
     if not any([request.movies, request.actors, request.directors, request.genres]):
         raise HTTPException(
             status_code=400,
@@ -130,6 +116,8 @@ def recommend(request: RecommendRequest):
             genres=request.genres,
             top_n=request.top_n,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -139,10 +127,9 @@ def recommend(request: RecommendRequest):
             detail="No recommendations found. Try different inputs."
         )
 
-    # Enrich top 10 results with OMDB poster
     enriched = []
-    for r in results[:10]:
-        omdb_data = fetch_movie_omdb(r["title"])
+    for r in results:
+        omdb = fetch_movie_omdb(r["title"])
         enriched.append(MovieCard(
             title=r["title"],
             score=r["score"],
@@ -153,8 +140,8 @@ def recommend(request: RecommendRequest):
             vote_average=r["vote_average"],
             overview=r["overview"],
             explanation=r["explanation"],
-            poster=omdb_data.get("poster", "N/A"),
-            imdb_rating=omdb_data.get("imdb_rating", "N/A"),
+            poster=omdb.get("poster", "N/A"),
+            imdb_rating=omdb.get("imdb_rating", "N/A"),
         ))
 
     return RecommendResponse(
@@ -171,12 +158,10 @@ def recommend(request: RecommendRequest):
 
 @app.get("/search")
 def search(
-    q:     str = Query(..., min_length=1, description="Search query"),
+    q:     str = Query(..., min_length=1),
     top_n: int = Query(default=10, ge=1, le=50),
 ):
-    """Search movies by title."""
     df = ml_model["df"]
-
     results = search_movies(query=q, df=df, top_n=top_n)
 
     if not results:
@@ -185,31 +170,21 @@ def search(
             detail=f"No movies found matching '{q}'"
         )
 
-    return {
-        "query":   q,
-        "total":   len(results),
-        "results": results,
-    }
+    return {"query": q, "total": len(results), "results": results}
 
 
 @app.get("/movie/{title}")
 def get_movie(title: str):
-    """Get details of a single movie by title."""
     df = ml_model["df"]
 
     matches = df[df["title"].str.lower() == title.strip().lower()]
-
     if matches.empty:
         matches = df[df["title"].str.lower().str.contains(title.strip().lower())]
-
     if matches.empty:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Movie '{title}' not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Movie '{title}' not found")
 
-    row      = matches.iloc[0]
-    omdb     = fetch_movie_omdb(row["title"])
+    row  = matches.iloc[0]
+    omdb = fetch_movie_omdb(row["title"])
 
     return {
         "title":        row["title"],
@@ -229,7 +204,6 @@ def get_movie(title: str):
 
 @app.get("/genres")
 def get_genres():
-    """Get all unique genres in the dataset."""
     df = ml_model["df"]
     all_genres = set()
     for genres in df["genres_list"]:
@@ -239,7 +213,6 @@ def get_genres():
 
 @app.get("/movies/popular")
 def get_popular(top_n: int = Query(default=20, ge=1, le=100)):
-    """Get top popular movies by weighted rating."""
     df = ml_model["df"]
 
     v = df["vote_count"]
@@ -253,12 +226,58 @@ def get_popular(top_n: int = Query(default=20, ge=1, le=100)):
 
     results = []
     for _, row in top.iterrows():
+        omdb = fetch_movie_omdb(row["title"])
         results.append({
             "title":           row["title"],
             "vote_average":    row["vote_average"],
             "weighted_rating": round(row["weighted_rating"], 2),
             "genres":          row["genres_list"],
+            "cast":            row["cast_list"],
             "director":        row["director_list"],
+            "overview":        row["overview"][:200] + "...",
+            "poster":          omdb.get("poster", "N/A"),
+            "imdb_rating":     omdb.get("imdb_rating", "N/A"),
         })
 
     return {"total": len(results), "results": results}
+
+
+@app.get("/suggest/actors")
+def suggest_actors(q: str = Query(..., min_length=1)):
+    df = ml_model["df"]
+    q_lower = q.strip().lower()
+
+    starts_with = set()
+    contains    = set()
+
+    for cast_list in df["cast_list"]:
+        for actor in cast_list:
+            actor_lower = actor.lower()
+            if actor_lower.startswith(q_lower):
+                starts_with.add(actor)
+            elif q_lower in actor_lower:
+                contains.add(actor)
+
+    # Names starting with query come first
+    results = sorted(starts_with)[:8] + sorted(contains)[:4]
+    return {"suggestions": results[:10]}
+
+
+@app.get("/suggest/directors")
+def suggest_directors(q: str = Query(..., min_length=1)):
+    df = ml_model["df"]
+    q_lower = q.strip().lower()
+
+    starts_with = set()
+    contains    = set()
+
+    for director_list in df["director_list"]:
+        for director in director_list:
+            director_lower = director.lower()
+            if director_lower.startswith(q_lower):
+                starts_with.add(director)
+            elif q_lower in director_lower:
+                contains.add(director)
+
+    results = sorted(starts_with)[:8] + sorted(contains)[:4]
+    return {"suggestions": results[:10]}
