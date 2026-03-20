@@ -106,7 +106,7 @@ export default function App() {
           {!loading && hasSearched && recommendations.length > 0 && (
             <MovieGrid
               movies={recommendations}
-              title={`🎯 Recommendations (${recommendations.length})`}
+              title={`Recommendations (${recommendations.length})`}
             />
           )}
 

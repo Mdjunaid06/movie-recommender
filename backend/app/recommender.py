@@ -85,10 +85,7 @@ def get_movie_score(
     df: pd.DataFrame,
     similarity_matrix: np.ndarray,
 ) -> np.ndarray:
-    """
-    Average cosine similarity scores across all input movies.
-    Returns array of shape (n_movies,)
-    """
+    """Average cosine similarity scores across all input movies."""
     scores = np.zeros(len(df))
     matched = 0
 
@@ -117,10 +114,7 @@ def get_actor_score(
     actors: list[str],
     df: pd.DataFrame,
 ) -> np.ndarray:
-    """
-    Score each movie by how many input actors appear in its cast.
-    Normalized to [0, 1].
-    """
+    """Score each movie by how many input actors appear in its cast."""
     scores = np.zeros(len(df))
 
     for i, row in df.iterrows():
@@ -142,9 +136,7 @@ def get_director_score(
     directors: list[str],
     df: pd.DataFrame,
 ) -> np.ndarray:
-    """
-    Score 1.0 if movie's director matches any input director, else 0.
-    """
+    """Score 1.0 if movie director matches any input director."""
     scores = np.zeros(len(df))
 
     for i, row in df.iterrows():
@@ -161,10 +153,7 @@ def get_genre_score(
     genres: list[str],
     df: pd.DataFrame,
 ) -> np.ndarray:
-    """
-    Score each movie by genre overlap with input genres.
-    Normalized to [0, 1].
-    """
+    """Score each movie by genre overlap with input genres."""
     scores = np.zeros(len(df))
 
     for i, row in df.iterrows():
@@ -188,26 +177,16 @@ def get_genre_score(
 
 def normalize_ratings(df: pd.DataFrame) -> np.ndarray:
     """
-    Normalize vote_average to [0, 1] range.
-    Uses IMDB weighted rating formula to penalize
-    movies with very few votes.
-
+    Normalize vote_average to [0, 1] using IMDB weighted formula.
     Formula: weighted = (v/(v+m)) * R + (m/(v+m)) * C
-    Where:
-        v = vote count for the movie
-        m = minimum votes threshold (25th percentile)
-        R = movie's average rating
-        C = mean rating across all movies
     """
     v = df["vote_count"].values
     R = df["vote_average"].values
     C = df["vote_average"].mean()
     m = df["vote_count"].quantile(0.25)
 
-    # IMDB weighted rating
     weighted = (v / (v + m)) * R + (m / (v + m)) * C
 
-    # Normalize to [0, 1]
     min_w = weighted.min()
     max_w = weighted.max()
     normalized = (weighted - min_w) / (max_w - min_w)
@@ -218,12 +197,11 @@ def normalize_ratings(df: pd.DataFrame) -> np.ndarray:
 def apply_popularity_boost(
     scores: np.ndarray,
     df: pd.DataFrame,
-    similarity_weight: float = 0.7,
-    popularity_weight: float = 0.3,
+    similarity_weight: float = 0.85,
+    popularity_weight: float = 0.15,
 ) -> np.ndarray:
     """
-    Combine similarity scores with popularity scores.
-    Final Score = (similarity × 0.7) + (popularity × 0.3)
+    Final Score = (similarity × 0.85) + (popularity × 0.15)
     """
     popularity_scores = normalize_ratings(df)
     final = (similarity_weight * scores) + (popularity_weight * popularity_scores)
@@ -245,16 +223,16 @@ def recommend_weighted(
     weights:   dict = None,
 ) -> list[dict]:
     """
-    Multi-input weighted recommendation engine.
+    Multi-input weighted recommendation engine with smart explanations.
 
-    Weights (default):
+    Weights:
         movies    → 50%
         actors    → 20%
         directors → 15%
         genres    → 15%
 
     Then applies popularity boost:
-        Final Score = (weighted_score × 0.7) + (popularity × 0.3)
+        Final Score = (weighted_score × 0.85) + (popularity × 0.15)
     """
     if weights is None:
         weights = {
@@ -273,26 +251,39 @@ def recommend_weighted(
 
     # ── Compute individual scores ──────────────
     final_scores = np.zeros(len(df))
+    any_match = False
 
     if movies:
         movie_scores = get_movie_score(movies, df, similarity_matrix)
+        if movie_scores.max() > 0:
+            any_match = True
         final_scores += weights["movies"] * movie_scores
         print(f"   🎬 Movie scores computed for: {movies}")
 
     if actors:
         actor_scores = get_actor_score(actors, df)
+        if actor_scores.max() > 0:
+            any_match = True
         final_scores += weights["actors"] * actor_scores
         print(f"   🎭 Actor scores computed for: {actors}")
 
     if directors:
         director_scores = get_director_score(directors, df)
+        if director_scores.max() > 0:
+            any_match = True
         final_scores += weights["directors"] * director_scores
         print(f"   🎥 Director scores computed for: {directors}")
 
     if genres:
         genre_scores = get_genre_score(genres, df)
+        if genre_scores.max() > 0:
+            any_match = True
         final_scores += weights["genres"] * genre_scores
         print(f"   🎞️  Genre scores computed for: {genres}")
+
+    # If nothing matched → raise clear error
+    if not any_match:
+        raise ValueError("No matches found. Check spelling or try different inputs.")
 
     # ── Apply popularity boost ─────────────────
     final_scores = apply_popularity_boost(final_scores, df)
@@ -314,23 +305,97 @@ def recommend_weighted(
     scored = sorted(scored, key=lambda x: x[1], reverse=True)
     scored = scored[:top_n]
 
-    # ── Build explanation ──────────────────────
-    reasons = []
-    if movies:
-        reasons.append(f"movies like {', '.join(movies[:2])}")
-    if actors:
-        reasons.append(f"actor(s) {', '.join(actors[:2])}")
-    if directors:
-        reasons.append(f"director {', '.join(directors[:1])}")
-    if genres:
-        reasons.append(f"{', '.join(genres[:2])} genre")
-
-    explanation = "Recommended because you liked " + " | ".join(reasons)
-
-    # ── Build output ───────────────────────────
+    # ── Build output with smart explanations ───
     results = []
     for idx, score in scored:
         row = df.iloc[idx]
+
+        # Smart per-movie explanation
+        explanation_parts = []
+
+        # 1. Check shared director
+        if directors:
+            for d in directors:
+                if any(d.lower() in rd.lower() for rd in row["director_list"]):
+                    explanation_parts.append(
+                        f"directed by {row['director_list'][0]}"
+                    )
+                    break
+        elif movies:
+            for input_title in movies:
+                input_matches = df[df["title"].str.lower() == input_title.lower()]
+                if not input_matches.empty:
+                    input_directors = input_matches.iloc[0]["director_list"]
+                    shared_dirs = [
+                        d for d in row["director_list"]
+                        if any(d.lower() == id_.lower() for id_ in input_directors)
+                    ]
+                    if shared_dirs:
+                        explanation_parts.append(
+                            f"same director ({shared_dirs[0]})"
+                        )
+                        break
+
+        # 2. Check shared cast
+        if actors:
+            matched_actors = [
+                a for a in actors
+                if any(a.lower() in c.lower() for c in row["cast_list"])
+            ]
+            if matched_actors:
+                explanation_parts.append(
+                    f"features {', '.join(matched_actors[:2])}"
+                )
+        elif movies:
+            for input_title in movies:
+                input_matches = df[df["title"].str.lower() == input_title.lower()]
+                if not input_matches.empty:
+                    input_cast = input_matches.iloc[0]["cast_list"]
+                    shared_cast = [
+                        c for c in row["cast_list"]
+                        if any(c.lower() == ic.lower() for ic in input_cast)
+                    ]
+                    if shared_cast:
+                        explanation_parts.append(
+                            f"shares cast ({', '.join(shared_cast[:2])})"
+                        )
+                        break
+
+        # 3. Check shared genres
+        if genres:
+            matched_genres = [
+                g for g in genres
+                if any(g.lower() == rg.lower() for rg in row["genres_list"])
+            ]
+            if matched_genres:
+                explanation_parts.append(
+                    f"{', '.join(matched_genres[:2])} genre"
+                )
+        elif movies:
+            for input_title in movies:
+                input_matches = df[df["title"].str.lower() == input_title.lower()]
+                if not input_matches.empty:
+                    input_genres = input_matches.iloc[0]["genres_list"]
+                    shared_genres = [
+                        g for g in row["genres_list"]
+                        if any(g.lower() == ig.lower() for ig in input_genres)
+                    ]
+                    if shared_genres:
+                        explanation_parts.append(
+                            f"similar {', '.join(shared_genres[:2])} themes"
+                        )
+                        break
+
+        # 4. Fallback
+        if not explanation_parts and movies:
+            explanation_parts.append(f"similar to {', '.join(movies[:2])}")
+
+        # Build final explanation
+        if explanation_parts:
+            explanation = "Recommended because: " + " · ".join(explanation_parts)
+        else:
+            explanation = "Matches your taste profile"
+
         results.append({
             "title":        row["title"],
             "score":        round(float(score), 4),
