@@ -15,17 +15,20 @@ export default function QuerySummary({ queryInfo, total }) {
 
   return (
     <div className="max-w-3xl mx-auto mt-4 bg-gray-800/50 border
-                    border-gray-700 rounded-xl px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+                    border-gray-700 rounded-xl px-3 md:px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
         <span className="text-gray-400">Showing</span>
         <span className="text-primary font-semibold">{total} results</span>
         <span className="text-gray-400">for:</span>
-        {parts.map((p, i) => (
-          <span key={i} className="bg-gray-700 text-white
-                                   px-3 py-1 rounded-full text-xs">
-            {p}
-          </span>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          {parts.map((p, i) => (
+            <span key={i}
+              className="bg-gray-700 text-white px-2 md:px-3 py-1
+                         rounded-full text-xs">
+              {p}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

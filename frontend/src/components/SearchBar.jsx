@@ -3,7 +3,9 @@ import { FaSearch } from "react-icons/fa";
 import AutocompleteInput from "./AutocompleteInput";
 import { searchMovies, suggestActors, suggestDirectors } from "../api";
 
-// eslint-disable-next-line react-hooks/exhaustive-deps
+// ─────────────────────────────────────────
+// Autocomplete hook — defined outside component
+// ─────────────────────────────────────────
 function useSuggestions(query, fetchFn) {
   const [suggestions, setSuggestions] = useState([]);
 
@@ -83,8 +85,8 @@ export default function SearchBar({ onRecommend, loading }) {
     genre !== "";
 
   return (
-    <div className="bg-card rounded-2xl p-6 shadow-lg border border-gray-800
-                    max-w-3xl mx-auto">
+    <div className="bg-card rounded-2xl p-4 md:p-6 shadow-lg border
+                    border-gray-800 max-w-3xl mx-auto">
 
       {/* Movie Input */}
       <div className="mb-4">
@@ -130,9 +132,9 @@ export default function SearchBar({ onRecommend, loading }) {
         {showAdvanced ? "▲ Hide filters" : "▼ Add actor / director (optional)"}
       </button>
 
-      {/* Advanced */}
+      {/* Advanced filters */}
       {showAdvanced && (
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="text-gray-300 text-sm font-medium mb-2 block">
               🎭 Actor

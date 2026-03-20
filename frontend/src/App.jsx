@@ -18,7 +18,6 @@ export default function App() {
   const [queryInfo,       setQueryInfo]       = useState(null);
   const resultsRef = useRef(null);
 
-  // Load popular movies on startup
   useEffect(() => {
     const fetchPopular = async () => {
       try {
@@ -46,7 +45,6 @@ export default function App() {
       setQueryInfo(data.query_info);
       setHasSearched(true);
 
-      // Auto scroll to results
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -75,11 +73,12 @@ export default function App() {
     <div className="min-h-screen bg-dark">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-10">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-6 md:py-10">
 
         {/* Hero */}
-        <div className="text-center mb-10">
-          <h2 className="text-4xl font-bold text-white mb-3">
+        <div className="text-center mb-6 md:mb-10">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold
+                         text-white mb-3">
             Find Your Next{" "}
             <span className="text-primary">Favorite Movie</span>
           </h2>
@@ -122,7 +121,7 @@ export default function App() {
           <>
             {popularLoading
               ? <SkeletonGrid count={10} />
-              : <MovieGrid movies={popularMovies} title="🔥 Popular Movies" />
+              : <MovieGrid movies={popularMovies} title="Popular Movies" />
             }
           </>
         )}
