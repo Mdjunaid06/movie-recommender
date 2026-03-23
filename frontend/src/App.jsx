@@ -6,7 +6,7 @@ import SkeletonGrid from "./components/SkeletonGrid";
 import EmptyState from "./components/EmptyState";
 import ErrorMessage from "./components/ErrorMessage";
 import QuerySummary from "./components/QuerySummary";
-import { getRecommendations, getPopularMovies } from "./api";
+import { getRecommendations, getPopularMovies, wakeUpBackend } from "./api";
 
 export default function App() {
   const [recommendations, setRecommendations] = useState([]);
@@ -19,15 +19,10 @@ export default function App() {
   const resultsRef = useRef(null);
 
 useEffect(() => {
-  // Wake up backend first
-  const wakeUp = async () => {
-    try {
-      await fetch("https://movie-recommender-li21.onrender.com/health");
-    } catch (e) {}
-  };
-  wakeUp();
+  // Step 1: Wake up backend immediately
+  wakeUpBackend();
 
-  // Then fetch popular movies
+  // Step 2: Wait 5 seconds then fetch popular movies
   const fetchPopular = async () => {
     try {
       setPopularLoading(true);
@@ -40,8 +35,7 @@ useEffect(() => {
     }
   };
 
-  // Wait 3 seconds for backend to wake up then fetch
-  setTimeout(fetchPopular, 3000);
+  setTimeout(fetchPopular, 5000);
 }, []);
 
   const handleRecommend = async (payload) => {

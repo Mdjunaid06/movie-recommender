@@ -1,9 +1,18 @@
 import axios from "axios";
 
+const BACKEND_URL = "https://movie-recommender-li21.onrender.com";
+
 const API = axios.create({
-  baseURL: "https://movie-recommender-li21.onrender.com",   
-  timeout: 120000,
+  baseURL: BACKEND_URL,
+  timeout: 120000, // 2 minutes — handles Render cold start
 });
+
+// Wake up backend (call this first on page load)
+export const wakeUpBackend = async () => {
+  try {
+    await fetch(`${BACKEND_URL}/health`);
+  } catch (e) {}
+};
 
 // Search movies by title
 export const searchMovies = async (query) => {
