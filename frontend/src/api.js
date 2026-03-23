@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://movie-recommender-li21.onrender.com",
-  timeout: 30000,
+  baseURL: "https://movie-recommender-li21.onrender.com",   
+  timeout: 120000,
 });
 
 // Search movies by title

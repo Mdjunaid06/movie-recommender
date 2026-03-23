@@ -18,20 +18,31 @@ export default function App() {
   const [queryInfo,       setQueryInfo]       = useState(null);
   const resultsRef = useRef(null);
 
-  useEffect(() => {
-    const fetchPopular = async () => {
-      try {
-        setPopularLoading(true);
-        const data = await getPopularMovies(20);
-        setPopularMovies(data.results || []);
-      } catch (err) {
-        console.error("Failed to load popular movies:", err);
-      } finally {
-        setPopularLoading(false);
-      }
-    };
-    fetchPopular();
-  }, []);
+useEffect(() => {
+  // Wake up backend first
+  const wakeUp = async () => {
+    try {
+      await fetch("https://movie-recommender-li21.onrender.com/health");
+    } catch (e) {}
+  };
+  wakeUp();
+
+  // Then fetch popular movies
+  const fetchPopular = async () => {
+    try {
+      setPopularLoading(true);
+      const data = await getPopularMovies(20);
+      setPopularMovies(data.results || []);
+    } catch (err) {
+      console.error("Failed to load popular movies:", err);
+    } finally {
+      setPopularLoading(false);
+    }
+  };
+
+  // Wait 3 seconds for backend to wake up then fetch
+  setTimeout(fetchPopular, 3000);
+}, []);
 
   const handleRecommend = async (payload) => {
     setLoading(true);

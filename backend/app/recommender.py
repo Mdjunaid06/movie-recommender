@@ -42,11 +42,11 @@ def build_model():
         ngram_range=(1, 2),
     )
     tfidf_matrix = tfidf.fit_transform(df["tags"])
-    print(f"   ✅ TF-IDF matrix shape: {tfidf_matrix.shape}")
+    print(f"   TF-IDF matrix shape: {tfidf_matrix.shape}")
 
     print("📐 Computing cosine similarity matrix...")
     similarity_matrix = cosine_similarity(tfidf_matrix, tfidf_matrix)
-    print(f"   ✅ Similarity matrix shape: {similarity_matrix.shape}")
+    print(f"   Similarity matrix shape: {similarity_matrix.shape}")
 
     print("💾 Saving model to disk...")
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -54,7 +54,7 @@ def build_model():
         pickle.dump(similarity_matrix, f)
     with open(DATAFRAME_PATH, "wb") as f:
         pickle.dump(df.reset_index(drop=True), f)
-    print("   ✅ Saved similarity.pkl and movies_df.pkl")
+    print("   Saved similarity.pkl and movies_df.pkl")
 
     return df, similarity_matrix
 
