@@ -16,7 +16,7 @@ def load_raw_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
     if not os.path.exists(movies_path) or not os.path.exists(credits_path):
         raise FileNotFoundError(
-            "Dataset files not found. Place both CSVs inside backend/data/"
+            "Dataset files not found."
         )
 
     movies_df = pd.read_csv(movies_path)
