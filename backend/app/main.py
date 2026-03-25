@@ -281,3 +281,7 @@ def suggest_directors(q: str = Query(..., min_length=1)):
 
     results = sorted(starts_with)[:8] + sorted(contains)[:4]
     return {"suggestions": results[:10]}
+
+@app.get("/ping")
+def ping():
+    return "ok"
